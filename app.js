@@ -1,112 +1,74 @@
-const express = require('express');
-const app = express();
-const port = 3000;
+const express = require('express'); // módulo do express pra criar o servidor web
+const app = express(); // crio a instância
+const PORT = process.env.PORT || 3000; // função para definir a porta do servidor
+app.listen(PORT, () => { // inicia o servidor na porta definida
+    console.log(`Porta ${PORT} do servidor`); //mostra a mensagem da porta
+});
 
-// Arrays para armazenar materiais e quantidades
-let materiais = [];
-let quantidades = [];
+const data = {}; // A lista com os materiais e quantidades
 
-// Middleware para tratar o corpo da solicitação como JSON
-app.use(express.json());
+app.use(express.json()); // usar o formato json
 
-// Requisito 1 - Listar materiais
+// Requisito 1 - Listar materiais - GET geral
 app.get('/materials', (req, res) => {
-  // Montar um arquivo JSON com os materiais
-  let estoque = materiais.map((material, index) => ({
-    id: index,
-    nome: material,
-    quantidade: quantidades[index],
-  }));
+    const estoque = Object.entries(data).map(([id, material]) => ({ // O object.entries(data)transforma o objeto (data) em matriz, com 2 valores (nome e quantidade). Já o .map faz a leitura da minha matriz e retorna o id
+        id,
+        nome: material.nome,
+        quantidade: material.quantidade,
+    }));
 
-  // Enviar a resposta
-  res.status(200).json(estoque);
+    res.status(200).json(estoque);
 });
 
-// Requisito 2 - Criação
+// Requisito 2 - Criação - POST 
 app.post('/materials', (req, res) => {
-  // Obter os dados do corpo da solicitação
-  let { nome, quantidade } = req.body.material;
+    const { nome, quantidade } = req.body; // pega os dados pra request
+    if (!nome || !quantidade) { // faz verificaçào dos dados 
+        res.status(400).json({ error: 'Dados inválidos' });
+        return;
+    }
 
-  // Adicionar os dados aos arrays
-  materiais.push(nome);
-  quantidades.push(quantidade);
-
-  // Enviar resposta de criação
-  res.status(201).send('O material foi criado.');
+    const id = Date.now().toString(); //gera o id
+    data[id] = { nome, quantidade }; // vai guardar os dados no data
+    res.status(201).send();
 });
 
-// Requisito 3 - Busca por ID
+// Requisito 3 - GET por ID 
 app.get('/materials/:id', (req, res) => {
-  let id = req.params.id;
-
-  // Verificar se o ID é válido
-  if (id < 0 || id >= materiais.length) {
-    return res.status(404).send('O material não foi localizado');
-  }
-
-  // Montar um arquivo JSON com os dados do material
-  let materialData = {
-    id,
-    nome: materiais[id],
-    quantidade: quantidades[id],
-  };
-
-  // Enviar a resposta
-  res.status(200).json(materialData);
+    const { id } = req.params; //defino os parametros da request
+    const material = data[id]; // ve se existe o material
+    if (material) {
+        res.status(200).json({ material: { id, nome: material.nome, quantidade: material.quantidade } });
+    } else {
+        res.status(404).json({ error: 'O Material não localizado' });
+    }
 });
 
-// Requisito 4 - Alterar por ID
+// Requisito 4 - Alterar por ID - PUT
 app.put('/materials/:id', (req, res) => {
-  let id = req.params.id;
-
-  // Verificar se o ID é válido
-  if (id < 0 || id >= materiais.length) {
-    return res.status(404).send('O material não foi localizaado');
-  }
-
-  // Obter os novos dados do corpo da solicitação
-  let { name, qtde } = req.body.material;
-
-  // Atualizar os dados no array
-  materiais[id] = name;
-  quantidades[id] = qtde;
-
-  // Enviar resposta de sucesso
-  res.status(200).send('Material atualizado com sucesso');
+    const { id } = req.params; // requisitos da request
+    const { nome, quantidade } = req.body;
+    if (data[id] && nome && quantidade) { // verifica se existe o data
+        data[id] = { nome, quantidade }; //altera pelo id
+        res.status(200).send();
+    } else {
+        res.status(404).json({ error: ' O Material não localizado ou não existe' });
+    }
 });
 
-// Requisito 5 - Remover por ID
+// Requisito 5 - Remover por ID - DELETE
 app.delete('/materials/:id', (req, res) => {
-  let id = req.params.id;
-
-  // Verificar se o ID é válido
-  if (id < 0 || id >= materiais.length) {
-    return res.status(404).send('Material não encontrado');
-  }
-
-  // Remover o material e a quantidade
-  materiais.splice(id, 1);
-  quantidades.splice(id, 1);
-
-  // Atualizar os IDs nos materiais restantes
-  materiais.forEach((material, index) => {
-    materiais[index] = material;
-    quantidades[index] = quantidades[index];
-  });
-
-  // Montar um arquivo JSON com os materiais restantes
-  let materialsList = materiais.map((material, index) => ({
-    id: index,
-    nome: material,
-    quantidade: quantidades[index],
-  }));
-
-  // Enviar a resposta com a lista atualizada
-  res.status(200).json(materialsList);
+    const { id } = req.params;
+    if (data[id]) { //se existe o objeto no data, é excluído
+        delete data[id];
+        res.status(200).json(Object.entries(data).map(([id, material]) => ({
+            id,
+            nome: material.nome,
+            quantidade: material.quantidade,
+        })));
+    } else {
+        res.status(404).json({ error: 'Material não foi localizado' });
+    }
 });
 
-// Iniciar o servidor
-app.listen(port, () => {
-  console.log(`O servidor está rodando na porta ${port}`);
-});
 
